@@ -64,7 +64,10 @@ export async function GET() {
     // =========================================================================
     // 2️⃣ OTHER CURRENCIES (EUR, GBP, TRY, CNY) SCRAPING
     // =========================================================================
-    const otherUrl = "https://xeiqd.com/"; // 👈 Put your other currencies URL here
+   // =========================================================================
+    // 2️⃣ OTHER CURRENCIES (EUR, GBP, TRY, CNY) SCRAPING
+    // =========================================================================
+    const otherUrl = "https://xeiqd.com/"; 
     let eurClean = "0";
     let gbpClean = "0";
     let tryClean = "0";
@@ -75,25 +78,38 @@ export async function GET() {
         const otherResp = await axios.get(otherUrl, { headers });
         const $other = cheerio.load(otherResp.data);
 
-        // Robust matching: find span elements strictly inside td / tr
-        const spans = $other("td span").filter((_, el) =>
-          $other(el).text().trim().includes("")
-        );
+        let eurRaw = "0";
+        let gbpRaw = "0";
+        let tryRaw = "0";
+        let cnyRaw = "0";
 
-        const eurRaw = spans.eq(48).text().trim() || "0";
-        const gbpRaw = spans.eq(36).text().trim() || "0";
-        const cnyRaw = spans.eq(56).text().trim() || "0";
-        const tryRaw = spans.eq(46).text().trim() || "0";
+        // ---------- 🎯 SMART ROW-BASED CURRENCY SCRAPER ----------
+        $other("tr").each((_, row) => {
+          const rowText = $other(row).find("th").text().trim().toLowerCase().replace(/\s+/g, " ");
+          const val = $other(row).find("td span.num").text().trim();
+
+          if (val) {
+            if (rowText.includes("100 try")) {
+              tryRaw = val;
+            } else if (rowText.includes("100 gbp") || rowText.includes("gbp")) {
+              gbpRaw = val;
+            } else if (rowText.includes("100 eur") || rowText.includes("eur")) {
+              eurRaw = val;
+            } else if (rowText.includes("100 cny") || rowText.includes("cny")) {
+              cnyRaw = val;
+            }
+          }
+        });
 
         eurClean = arabicToEnglish(eurRaw.replace(/[^0-9٠-٩]/g, ""));
         gbpClean = arabicToEnglish(gbpRaw.replace(/[^0-9٠-٩]/g, ""));
         tryClean = arabicToEnglish(tryRaw.replace(/[^0-9٠-٩]/g, ""));
         
-        // ---------- ✅ CNY FIX ----------
+        // ---------- ✅ CNY FORMATTING ----------
         const cnyClean = arabicToEnglish(cnyRaw.replace(/[^0-9٠-٩]/g, ""));
         let cnyNum = Number(cnyClean);
+        cnyFormatted = isNaN(cnyNum) ? "0" : cnyNum.toFixed();
 
-        cnyFormatted = cnyNum.toFixed();
       } catch (err) {
         console.error("❌ Other Currencies Scraping Error:", err);
       }
